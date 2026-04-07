@@ -21,7 +21,10 @@ cp .env.example .env
 ```env
 OLLAMA_MODEL=llama3.2:latest
 OLLAMA_HOST=http://localhost:11434
+CONTEXT7_API_KEY=<token_context7>
 ```
+
+`CONTEXT7_API_KEY` est optionnelle. Sans cette cle, `suggest_fix` reste disponible mais indique explicitement que Context7 n'a pas ete appele.
 
 ## Lancement rapide
 
@@ -44,6 +47,22 @@ cargo run
 - `make test` : tests
 - `make test-one TEST=nom_test` : test unique exact
 
+## Comportement Context7
+
+- `suggest_fix` est force au moins une fois dans le flux principal (`main`) via un appel direct de tool.
+- La sortie de `suggest_fix` inclut toujours un bloc `Context7` explicite:
+  - `called: yes` quand l'appel API a ete tente
+  - `called: no` quand l'appel n'est pas tente (ex: `CONTEXT7_API_KEY` absente ou log non mappe)
+- En cas d'appel, le bloc contient soit des `snippets`, soit un `error`.
+
+Exemple de bloc:
+
+```text
+Context7:
+- called: no
+- reason: missing CONTEXT7_API_KEY
+```
+
 ## Troubleshooting
 
 - Erreur `model '...' not found`:
@@ -52,6 +71,10 @@ cargo run
   - telecharger un modele manquant avec `ollama pull <nom_modele>`
 - Erreur `Missing OLLAMA_MODEL` ou `Missing OLLAMA_HOST`:
   - verifier que `.env` existe et contient les variables
+- `Context7:` avec `called: no`:
+  - verifier `CONTEXT7_API_KEY` dans `.env`
+  - verifier que l'API key est valide
+  - verifier que le log matche un `error_code` mappe (`DB_TIMEOUT`, `AUTH_INVALID_TOKEN`, `UPSTREAM_502`)
 
 ## Architecture (actuelle)
 

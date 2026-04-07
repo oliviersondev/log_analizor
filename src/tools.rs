@@ -1,8 +1,22 @@
 use async_trait::async_trait;
+use serde::Deserialize;
 use strands_agents::ToolSpec;
 use strands_agents::tools::{AgentTool, ToolContext, ToolResult2};
 
-use crate::domain::{classify_incident, parse_log, suggest_fix};
+use crate::domain::{
+    Context7Query, classify_incident, context7_query_from_raw_log, parse_log, suggest_fix,
+};
+
+#[derive(Debug, Deserialize)]
+struct Context7Snippet {
+    title: Option<String>,
+    content: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Context7Response {
+    snippets: Vec<Context7Snippet>,
+}
 
 fn extract_raw_log(input: &serde_json::Value) -> Result<String, String> {
     input
@@ -10,6 +24,54 @@ fn extract_raw_log(input: &serde_json::Value) -> Result<String, String> {
         .and_then(serde_json::Value::as_str)
         .map(std::string::ToString::to_string)
         .ok_or_else(|| "Missing required parameter: raw_log".to_string())
+}
+
+async fn fetch_context7_snippets(
+    query: &Context7Query,
+    api_key: &str,
+) -> Result<Vec<String>, String> {
+    let url = format!(
+        "https://context7.com/api/v2/docs/code/{}/{}",
+        query.library, query.framework
+    );
+
+    let client = reqwest::Client::new();
+    let response = client
+        .get(url)
+        .query(&[("topic", query.topic)])
+        .bearer_auth(api_key)
+        .send()
+        .await
+        .map_err(|e| format!("Context7 request failed: {e}"))?;
+
+    let status = response.status();
+    if !status.is_success() {
+        let body = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "<no body>".to_string());
+        return Err(format!("Context7 API error {status}: {body}"));
+    }
+
+    let payload: Context7Response = response
+        .json()
+        .await
+        .map_err(|e| format!("Context7 response parse failed: {e}"))?;
+
+    let snippets = payload
+        .snippets
+        .into_iter()
+        .take(2)
+        .map(|s| {
+            let title = s.title.unwrap_or_else(|| "Snippet".to_string());
+            let content = s
+                .content
+                .unwrap_or_else(|| "No snippet content returned".to_string());
+            format!("- {title}: {content}")
+        })
+        .collect::<Vec<_>>();
+
+    Ok(snippets)
 }
 
 #[derive(Clone, Default)]
@@ -85,7 +147,15 @@ impl AgentTool for ClassifyIncidentTool {
 }
 
 #[derive(Clone, Default)]
-pub struct SuggestFixTool;
+pub struct SuggestFixTool {
+    context7_api_key: Option<String>,
+}
+
+impl SuggestFixTool {
+    pub fn new(context7_api_key: Option<String>) -> Self {
+        Self { context7_api_key }
+    }
+}
 
 #[async_trait]
 impl AgentTool for SuggestFixTool {
@@ -116,6 +186,30 @@ impl AgentTool for SuggestFixTool {
         _context: &ToolContext,
     ) -> Result<ToolResult2, String> {
         let raw_log = extract_raw_log(&input)?;
-        Ok(ToolResult2::success(suggest_fix(raw_log)))
+        let base_suggestion = suggest_fix(raw_log.clone());
+
+        let context7_section = match self.context7_api_key.as_deref() {
+            None => "Context7:\n- called: no\n- reason: missing CONTEXT7_API_KEY".to_string(),
+            Some(_) if context7_query_from_raw_log(&raw_log).is_none() => {
+                "Context7:\n- called: no\n- reason: no mapping for this log".to_string()
+            }
+            Some(api_key) => {
+                let query = context7_query_from_raw_log(&raw_log)
+                    .ok_or_else(|| "No Context7 mapping for this log".to_string())?;
+
+                match fetch_context7_snippets(&query, api_key).await {
+                    Ok(snippets) if !snippets.is_empty() => format!(
+                        "Context7:\n- called: yes\n- snippets:\n{}",
+                        snippets.join("\n")
+                    ),
+                    Ok(_) => "Context7:\n- called: yes\n- snippets: none returned".to_string(),
+                    Err(err) => format!("Context7:\n- called: yes\n- error: {err}"),
+                }
+            }
+        };
+
+        let enriched = format!("{base_suggestion}\n\n{context7_section}");
+
+        Ok(ToolResult2::success(enriched))
     }
 }

@@ -2,6 +2,7 @@
 pub struct AppConfig {
     pub ollama_model: String,
     pub ollama_host: String,
+    pub context7_api_key: Option<String>,
 }
 
 impl AppConfig {
@@ -22,9 +23,14 @@ impl AppConfig {
             )
         })?;
 
+        let context7_api_key = std::env::var("CONTEXT7_API_KEY")
+            .ok()
+            .and_then(|v| if v.trim().is_empty() { None } else { Some(v) });
+
         Ok(Self {
             ollama_model,
             ollama_host,
+            context7_api_key,
         })
     }
 }

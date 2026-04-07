@@ -27,6 +27,7 @@
 - Expected vars (see `.env.example`):
   - `OLLAMA_MODEL` (required)
   - `OLLAMA_HOST` (required)
+  - `CONTEXT7_API_KEY` (optional, used to enrich `suggest_fix`)
 - `.env` is gitignored; do not commit local secrets.
 - For local execution, Ollama service must be running (for example: `ollama serve`).
 

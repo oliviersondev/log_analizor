@@ -1,5 +1,11 @@
 use serde::{Deserialize, Serialize};
 
+pub struct Context7Query {
+    pub library: &'static str,
+    pub framework: &'static str,
+    pub topic: &'static str,
+}
+
 #[derive(Debug, Deserialize, Serialize)]
 pub struct AppLog {
     level: String,
@@ -54,7 +60,7 @@ pub fn suggest_fix(raw_log: String) -> String {
         Ok(log) => {
             let suggestion = if let Some(code) = &log.error_code {
                 match code.as_str() {
-                    "DB_TIMEOUT" => {
+                    "DB_TIMEOUT" => {// TODO c'est une kley d'enum utilisé partout
                         "Verifier la latence DB, le pool de connexions et les requetes lentes."
                     }
                     "AUTH_INVALID_TOKEN" => {
@@ -89,5 +95,28 @@ pub fn infer_cause(log: &AppLog) -> &'static str {
         "performance degradation"
     } else {
         "minor event"
+    }
+}
+
+pub fn context7_query_from_raw_log(raw_log: &str) -> Option<Context7Query> {
+    let log = serde_json::from_str::<AppLog>(raw_log).ok()?;
+
+    match log.error_code.as_deref() {
+        Some("DB_TIMEOUT") => Some(Context7Query {
+            library: "postgresql", // TODO c'est pas forcement cette techno
+            framework: "postgresql",
+            topic: "connection timeout",
+        }),
+        Some("AUTH_INVALID_TOKEN") => Some(Context7Query {
+            library: "auth0", // TODO c'est pas forcement cette techno
+            framework: "docs",
+            topic: "jwt validation",
+        }),
+        Some("UPSTREAM_502") => Some(Context7Query {
+            library: "nginx", // TODO c'est pas forcement cette techno
+            framework: "nginx",
+            topic: "502 bad gateway",
+        }),
+        _ => None,
     }
 }
