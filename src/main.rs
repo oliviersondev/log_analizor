@@ -4,9 +4,6 @@ use strands_agents::models::OllamaModel;
 use strands_agents::tools::{AgentTool, ToolContext, ToolResult2};
 use strands_agents::{Agent, ToolSpec};
 
-// TODO ADD Context7
-// TODO ADD FRONT
-
 #[derive(Debug, Deserialize, Serialize)]
 struct AppLog {
     level: String,
@@ -219,9 +216,18 @@ impl AgentTool for SuggestFixTool {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = dotenvy::dotenv();
 
-    let ollama_model = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "llama3".to_string());
-    let ollama_host =
-        std::env::var("OLLAMA_HOST").unwrap_or_else(|_| "http://localhost:11434".to_string());
+    let ollama_model = std::env::var("OLLAMA_MODEL").map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Missing OLLAMA_MODEL. Copy .env.example to .env and set it.",
+        )
+    })?;
+    let ollama_host = std::env::var("OLLAMA_HOST").map_err(|_| {
+        std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Missing OLLAMA_HOST. Copy .env.example to .env and set it.",
+        )
+    })?;
 
     let raw_log = r#"{
         "level": "ERROR",
