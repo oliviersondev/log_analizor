@@ -55,12 +55,16 @@ cargo run
 
 ## Architecture (actuelle)
 
-- Entree unique: `src/main.rs`
-- Outils agent implémentes manuellement via `AgentTool`:
+- `src/main.rs`: bootstrap runtime (chargement config, creation agent, invocation)
+- `src/lib.rs`: point d'entree des modules internes
+- `src/config.rs`: chargement `.env` + validation des variables requises
+- `src/domain.rs`: logique metier de parsing/classification/suggestion
+- `src/tools.rs`: wrappers `AgentTool` qui deleguent a `domain`
+- Outils agent implementes manuellement via `AgentTool`:
   - `ParseLogTool`
   - `ClassifyIncidentTool`
   - `SuggestFixTool`
-- Helpers metier:
+- Helpers metier (dans `domain`):
   - `parse_log`
   - `classify_incident`
   - `suggest_fix`

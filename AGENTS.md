@@ -1,7 +1,8 @@
 # AGENTS.md
 
 ## What Matters In This Repo
-- Single Rust binary crate (`edition = 2024`), entrypoint is `src/main.rs`.
+- Single Rust crate (`edition = 2024`) with bin + lib split.
+- Runtime entrypoint is `src/main.rs`; internal modules are exported from `src/lib.rs`.
 - No workspace, no CI config, no codegen pipeline; keep changes small and local.
 - Runtime depends on local Ollama (`OllamaModel`), not Bedrock.
 
@@ -34,8 +35,9 @@
 - With the pinned dependency set in `Cargo.toml`, macro-generated code is incompatible here; tools are implemented manually via `AgentTool` (`ParseLogTool`, `ClassifyIncidentTool`, `SuggestFixTool`).
 
 ## Code Structure That Agents Should Preserve
-- Core parsing/classification helpers are plain functions (`parse_log`, `classify_incident`, `suggest_fix`, `infer_cause`).
-- Tool structs are thin wrappers around those helpers; keep business logic in helpers, not in `invoke` bodies.
+- Keep the layering: `main` (wiring) -> `config` (env) + `tools` (AgentTool wrappers) -> `domain` (business logic).
+- Core parsing/classification helpers stay in `domain` (`parse_log`, `classify_incident`, `suggest_fix`, `infer_cause`).
+- Tool structs stay thin wrappers around domain helpers; keep business logic out of `invoke` bodies.
 - Current operator-facing strings are French-oriented; keep language consistency unless asked to change it.
 
 ## Dependency Policy
