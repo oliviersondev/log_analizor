@@ -28,9 +28,11 @@ cp .env.example .env
 OLLAMA_MODEL=llama3.2:latest
 OLLAMA_HOST=http://localhost:11434
 CONTEXT7_API_KEY=<token_context7>
+CONTEXT7_DEBUG=false
 ```
 
 `CONTEXT7_API_KEY` est optionnelle. Sans cette cle, `suggest_fix` reste disponible mais indique explicitement que Context7 n'a pas ete appele.
+`CONTEXT7_DEBUG=true` active l'affichage des candidats Context7 testes (`candidates_tested`).
 
 ## Lancement rapide
 
@@ -58,6 +60,7 @@ Par defaut, `main` choisit aleatoirement un scenario de log dans `src/sample_log
 ## Comportement Context7
 
 - `suggest_fix` est force au moins une fois dans le flux principal (`main`) via un appel direct de tool.
+- Le choix de la librairie Context7 est dynamique: recherche `/search/libraries`, scoring local des candidats, puis fallback sur les 3 meilleurs IDs.
 - La sortie de `suggest_fix` inclut toujours un bloc `Context7` explicite:
   - `called: yes` quand l'appel API a ete tente
   - `called: no` quand l'appel n'est pas tente (ex: `CONTEXT7_API_KEY` absente ou log non mappe)

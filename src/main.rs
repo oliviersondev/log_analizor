@@ -19,7 +19,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .tool(ParseLogTool)?
         .tool(ClassifyIncidentTool)?
-        .tool(SuggestFixTool::new(config.context7_api_key))?
+        .tool(SuggestFixTool::new(
+            config.context7_api_key,
+            config.context7_debug,
+        ))?
         .build()?;
 
     let suggest_fix_result = agent
@@ -46,7 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             &forced_suggest_fix
         }
     );
-    println!("Cas de test: {}\n{}",sample.name,prompt);
+    println!("Cas de test: {}\n{}", sample.name, prompt);
 
     let response = agent.invoke_async(prompt).await?;
     println!("{response}");

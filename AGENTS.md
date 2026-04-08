@@ -28,6 +28,7 @@
   - `OLLAMA_MODEL` (required)
   - `OLLAMA_HOST` (required)
   - `CONTEXT7_API_KEY` (optional, used to enrich `suggest_fix`)
+  - `CONTEXT7_DEBUG` (optional, prints tested Context7 candidates)
 - `.env` is gitignored; do not commit local secrets.
 - For local execution, Ollama service must be running (for example: `ollama serve`).
 
@@ -39,6 +40,7 @@
 - Keep the layering: `main` (wiring) -> `config` (env) + `tools` (AgentTool wrappers) -> `domain` (business logic).
 - Core parsing/classification helpers stay in `domain` (`parse_log`, `classify_incident`, `suggest_fix`, `infer_cause`).
 - Tool structs stay thin wrappers around domain helpers; keep business logic out of `invoke` bodies.
+- `suggest_fix` enriches output through Context7 by searching available libraries first, then querying docs on top ranked candidates.
 - `sample_logs` provides randomized local scenarios for manual runs; keep it focused on representative formats/errors.
 - Current operator-facing strings are French-oriented; keep language consistency unless asked to change it.
 
