@@ -39,6 +39,7 @@
 - Keep the layering: `main` (wiring) -> `config` (env) + `tools` (AgentTool wrappers) -> `domain` (business logic).
 - Core parsing/classification helpers stay in `domain` (`parse_log`, `classify_incident`, `suggest_fix`, `infer_cause`).
 - Tool structs stay thin wrappers around domain helpers; keep business logic out of `invoke` bodies.
+- `sample_logs` provides randomized local scenarios for manual runs; keep it focused on representative formats/errors.
 - Current operator-facing strings are French-oriented; keep language consistency unless asked to change it.
 
 ## Dependency Policy
