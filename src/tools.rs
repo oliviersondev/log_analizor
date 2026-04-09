@@ -279,11 +279,14 @@ impl AgentTool for SuggestFixTool {
                             query.search_query, err.message
                         );
 
-                        if self.context7_debug && !err.candidates.is_empty() {
-                            section.push_str(&format!(
-                                "\n- candidates_tested: {}",
+                        if self.context7_debug {
+                            let candidates = if err.candidates.is_empty() {
+                                "none".to_string()
+                            } else {
                                 err.candidates.join(", ")
-                            ));
+                            };
+
+                            section.push_str(&format!("\n- candidates_tested: {candidates}"));
                         }
 
                         section

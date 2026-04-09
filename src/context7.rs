@@ -30,11 +30,15 @@ impl Context7Client {
     }
 
     pub async fn search_libraries(&self, query: &str) -> Result<Vec<Context7Library>, String> {
-        let response = self
+        let library_name = infer_library_name(query);
+
+        let request = self
             .client
-            .get("https://context7.com/search/libraries")
-            .query(&[("query", query)])
-            .bearer_auth(&self.api_key)
+            .get("https://context7.com/api/v2/libs/search")
+            .query(&[("libraryName", library_name.as_str()), ("query", query)]);
+
+        let response = self
+            .apply_auth_if_valid(request)
             .send()
             .await
             .map_err(|e| format!("Context7 library search failed: {e}"))?;
@@ -82,10 +86,7 @@ impl Context7Client {
         );
 
         let response = self
-            .client
-            .get(url)
-            .query(&[("topic", topic)])
-            .bearer_auth(&self.api_key)
+            .apply_auth_if_valid(self.client.get(url).query(&[("topic", topic)]))
             .send()
             .await
             .map_err(|e| format!("Context7 docs request failed: {e}"))?;
@@ -99,20 +100,60 @@ impl Context7Client {
             return Err(format!("Context7 docs API error {status}: {body}"));
         }
 
-        let payload: Context7DocsResponse = response
-            .json()
+        let body = response
+            .text()
             .await
-            .map_err(|e| format!("Context7 docs parse failed: {e}"))?;
+            .map_err(|e| format!("Context7 docs body read failed: {e}"))?;
 
-        Ok(payload
-            .snippets
-            .into_iter()
-            .map(|s| Context7Snippet {
-                title: s.title,
-                content: s.content,
-            })
-            .collect())
+        Ok(parse_docs_text_snippets(&body))
     }
+
+    fn apply_auth_if_valid(&self, request: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+        if is_plausible_context7_key(&self.api_key) {
+            request.bearer_auth(&self.api_key)
+        } else {
+            request
+        }
+    }
+}
+
+fn is_plausible_context7_key(value: &str) -> bool {
+    let key = value.trim();
+    key.starts_with("ctx7sk")
+}
+
+fn infer_library_name(query: &str) -> String {
+    query
+        .split(|c: char| !c.is_ascii_alphanumeric() && c != '.' && c != '-' && c != '_')
+        .find(|t| t.len() >= 3)
+        .unwrap_or("library")
+        .to_ascii_lowercase()
+}
+
+fn parse_docs_text_snippets(body: &str) -> Vec<Context7Snippet> {
+    let sections = body
+        .split("\n--------------------------------\n")
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>();
+
+    sections
+        .into_iter()
+        .map(|section| {
+            let mut lines = section.lines();
+            let first = lines.next().unwrap_or_default().trim();
+
+            let title = first
+                .strip_prefix("### ")
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty());
+
+            Context7Snippet {
+                title,
+                content: Some(section.to_string()),
+            }
+        })
+        .collect()
 }
 
 fn parse_library_id(library_id: &str) -> Result<(&str, &str), String> {
@@ -149,15 +190,4 @@ struct SearchLibrariesItem {
     trust_score: Option<f64>,
     #[serde(default, alias = "benchmarkScore")]
     benchmark_score: Option<f64>,
-}
-
-#[derive(Debug, Deserialize)]
-struct Context7DocsResponse {
-    snippets: Vec<Context7DocsSnippet>,
-}
-
-#[derive(Debug, Deserialize)]
-struct Context7DocsSnippet {
-    title: Option<String>,
-    content: Option<String>,
 }
