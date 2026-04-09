@@ -2,6 +2,7 @@
 pub struct AppConfig {
     pub ollama_model: String,
     pub ollama_host: String,
+    pub context7_enabled: bool,
     pub context7_api_key: Option<String>,
     pub context7_debug: bool,
 }
@@ -28,6 +29,14 @@ impl AppConfig {
             .ok()
             .and_then(|v| if v.trim().is_empty() { None } else { Some(v) });
 
+        let context7_enabled = std::env::var("CONTEXT7_ENABLED")
+            .ok()
+            .map(|v| {
+                let lower = v.trim().to_ascii_lowercase();
+                matches!(lower.as_str(), "1" | "true" | "yes" | "on")
+            })
+            .unwrap_or(false);
+
         let context7_debug = std::env::var("CONTEXT7_DEBUG")
             .ok()
             .map(|v| {
@@ -39,6 +48,7 @@ impl AppConfig {
         Ok(Self {
             ollama_model,
             ollama_host,
+            context7_enabled,
             context7_api_key,
             context7_debug,
         })

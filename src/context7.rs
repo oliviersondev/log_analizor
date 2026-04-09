@@ -1,4 +1,8 @@
+use std::time::Duration;
+
 use serde::Deserialize;
+
+const CONTEXT7_SEARCH_URL: &str = "https://context7.com/api/v2/libs/search";
 
 #[derive(Debug, Clone)]
 pub struct Context7Library {
@@ -16,6 +20,7 @@ pub struct Context7Snippet {
     pub content: Option<String>,
 }
 
+#[derive(Clone)]
 pub struct Context7Client {
     client: reqwest::Client,
     api_key: String,
@@ -23,10 +28,16 @@ pub struct Context7Client {
 
 impl Context7Client {
     pub fn new(api_key: String) -> Self {
-        Self {
-            client: reqwest::Client::new(),
-            api_key,
-        }
+        let client = reqwest::Client::builder()
+            .user_agent("log_analizor/0.1.0")
+            .connect_timeout(Duration::from_secs(5))
+            .timeout(Duration::from_secs(12))
+            .pool_idle_timeout(Duration::from_secs(30))
+            .pool_max_idle_per_host(4)
+            .build()
+            .unwrap_or_else(|_| reqwest::Client::new());
+
+        Self { client, api_key }
     }
 
     pub async fn search_libraries(&self, query: &str) -> Result<Vec<Context7Library>, String> {
@@ -34,7 +45,7 @@ impl Context7Client {
 
         let request = self
             .client
-            .get("https://context7.com/api/v2/libs/search")
+            .get(CONTEXT7_SEARCH_URL)
             .query(&[("libraryName", library_name.as_str()), ("query", query)]);
 
         let response = self
@@ -57,7 +68,7 @@ impl Context7Client {
             .await
             .map_err(|e| format!("Context7 search parse failed: {e}"))?;
 
-        let results = payload
+        Ok(payload
             .results
             .into_iter()
             .map(|item| Context7Library {
@@ -68,9 +79,7 @@ impl Context7Client {
                 trust_score: item.trust_score,
                 benchmark_score: item.benchmark_score,
             })
-            .collect();
-
-        Ok(results)
+            .collect())
     }
 
     pub async fn fetch_snippets(
@@ -79,7 +88,6 @@ impl Context7Client {
         topic: &str,
     ) -> Result<Vec<Context7Snippet>, String> {
         let (library, framework) = parse_library_id(library_id)?;
-
         let url = format!(
             "https://context7.com/api/v2/docs/code/{}/{}",
             library, framework
@@ -131,18 +139,26 @@ fn infer_library_name(query: &str) -> String {
 }
 
 fn parse_docs_text_snippets(body: &str) -> Vec<Context7Snippet> {
-    let sections = body
-        .split("\n--------------------------------\n")
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .collect::<Vec<_>>();
+    let trimmed = body.trim();
+    if trimmed.is_empty() {
+        return vec![];
+    }
+
+    let sections = if trimmed.contains("\n--------------------------------\n") {
+        trimmed
+            .split("\n--------------------------------\n")
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+            .collect::<Vec<_>>()
+    } else {
+        vec![trimmed.to_string()]
+    };
 
     sections
         .into_iter()
         .map(|section| {
-            let mut lines = section.lines();
-            let first = lines.next().unwrap_or_default().trim();
-
+            let first = section.lines().next().unwrap_or_default().trim();
             let title = first
                 .strip_prefix("### ")
                 .map(|s| s.trim().to_string())
@@ -150,7 +166,7 @@ fn parse_docs_text_snippets(body: &str) -> Vec<Context7Snippet> {
 
             Context7Snippet {
                 title,
-                content: Some(section.to_string()),
+                content: Some(section),
             }
         })
         .collect()

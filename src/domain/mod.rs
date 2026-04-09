@@ -80,7 +80,7 @@ pub fn context7_query_from_raw_log(raw_log: &str) -> Option<Context7Query> {
             topic: "502 bad gateway".to_string(),
         },
         _ if log.response_time_ms.unwrap_or(0) > 2000 => Context7Query {
-            search_query: format!("{} performance latency timeout", log.service),
+            search_query: "application performance latency timeout".to_string(),
             topic: "performance tuning".to_string(),
         },
         _ => return None,

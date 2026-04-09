@@ -10,6 +10,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = AppConfig::from_env()?;
     let sample = pick_random_sample();
 
+    if config.context7_debug {
+        println!(
+            "Context7 config => enabled={}, debug={}, api_key_present={}",
+            config.context7_enabled,
+            config.context7_debug,
+            config.context7_api_key.is_some()
+        );
+    }
+
     let mut agent = Agent::builder()
         .model(OllamaModel::new(config.ollama_model).with_host(config.ollama_host))
         .system_prompt(
@@ -20,6 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .tool(ParseLogTool)?
         .tool(ClassifyIncidentTool)?
         .tool(SuggestFixTool::new(
+            config.context7_enabled,
             config.context7_api_key,
             config.context7_debug,
         ))?

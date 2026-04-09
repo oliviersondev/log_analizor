@@ -1,11 +1,14 @@
 use async_trait::async_trait;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
 use strands_agents::ToolSpec;
 use strands_agents::tools::{AgentTool, ToolContext, ToolResult2};
 
 use crate::context7::{Context7Client, Context7Library};
 use crate::domain::{classify_incident, context7_query_from_raw_log, parse_log, suggest_fix};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Context7Resolution {
     selected_library_id: String,
     snippets: Vec<String>,
@@ -13,7 +16,7 @@ struct Context7Resolution {
     candidates: Vec<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Context7ResolutionError {
     message: String,
     candidates: Vec<String>,
@@ -53,11 +56,10 @@ fn score_library(search_query: &str, lib: &Context7Library) -> f64 {
 }
 
 async fn resolve_context7_snippets(
-    api_key: &str,
+    client: &Context7Client,
     search_query: &str,
     topic: &str,
 ) -> Result<Context7Resolution, Context7ResolutionError> {
-    let client = Context7Client::new(api_key.to_string());
     let mut libraries =
         client
             .search_libraries(search_query)
@@ -201,15 +203,24 @@ impl AgentTool for ClassifyIncidentTool {
 
 #[derive(Clone, Default)]
 pub struct SuggestFixTool {
+    context7_enabled: bool,
     context7_api_key: Option<String>,
     context7_debug: bool,
+    context7_cache:
+        Arc<Mutex<HashMap<String, Result<Context7Resolution, Context7ResolutionError>>>>,
 }
 
 impl SuggestFixTool {
-    pub fn new(context7_api_key: Option<String>, context7_debug: bool) -> Self {
+    pub fn new(
+        context7_enabled: bool,
+        context7_api_key: Option<String>,
+        context7_debug: bool,
+    ) -> Self {
         Self {
+            context7_enabled,
             context7_api_key,
             context7_debug,
+            context7_cache: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
@@ -245,16 +256,43 @@ impl AgentTool for SuggestFixTool {
         let raw_log = extract_raw_log(&input)?;
         let base_suggestion = suggest_fix(raw_log.clone());
 
-        let context7_section = match self.context7_api_key.as_deref() {
-            None => "Context7:\n- called: no\n- reason: missing CONTEXT7_API_KEY".to_string(),
-            Some(_) if context7_query_from_raw_log(&raw_log).is_none() => {
+        let context7_section = match (self.context7_enabled, self.context7_api_key.as_deref()) {
+            (false, _) => {
+                "Context7:\n- called: no\n- reason: disabled (set CONTEXT7_ENABLED=true to enable)"
+                    .to_string()
+            }
+            (true, None) => {
+                "Context7:\n- called: no\n- reason: missing CONTEXT7_API_KEY".to_string()
+            }
+            (true, Some(_)) if context7_query_from_raw_log(&raw_log).is_none() => {
                 "Context7:\n- called: no\n- reason: no mapping for this log".to_string()
             }
-            Some(api_key) => {
+            (true, Some(api_key)) => {
                 let query = context7_query_from_raw_log(&raw_log)
                     .ok_or_else(|| "No Context7 mapping for this log".to_string())?;
 
-                match resolve_context7_snippets(api_key, &query.search_query, &query.topic).await {
+                let cache_key = format!("{}::{}", query.search_query, query.topic);
+
+                let cached_result = self
+                    .context7_cache
+                    .lock()
+                    .ok()
+                    .and_then(|cache| cache.get(&cache_key).cloned());
+
+                let client = Context7Client::new(api_key.to_string());
+
+                let resolution = if let Some(cached) = cached_result {
+                    cached
+                } else {
+                    let fresh =
+                        resolve_context7_snippets(&client, &query.search_query, &query.topic).await;
+                    if let Ok(mut cache) = self.context7_cache.lock() {
+                        cache.insert(cache_key, fresh.clone());
+                    }
+                    fresh
+                };
+
+                match resolution {
                     Ok(resolution) => {
                         let mut section = format!(
                             "Context7:\n- called: yes\n- search_query: {}\n- selected_library_id: {}\n- fallback_attempts: {}\n- snippets:\n{}",

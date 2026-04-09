@@ -27,6 +27,7 @@
 - Expected vars (see `.env.example`):
   - `OLLAMA_MODEL` (required)
   - `OLLAMA_HOST` (required)
+  - `CONTEXT7_ENABLED` (optional, enables Context7 outbound calls)
   - `CONTEXT7_API_KEY` (optional, used to enrich `suggest_fix`)
   - `CONTEXT7_DEBUG` (optional, prints tested Context7 candidates)
 - `.env` is gitignored; do not commit local secrets.
