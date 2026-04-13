@@ -7,9 +7,8 @@ const ERROR_AUTH_INVALID_TOKEN: &str = "AUTH_INVALID_TOKEN";
 const ERROR_UPSTREAM_502: &str = "UPSTREAM_502";
 
 pub struct Context7Query {
-    pub library: &'static str,
-    pub framework: &'static str,
-    pub topic: &'static str,
+    pub search_query: String,
+    pub topic: String,
 }
 
 pub fn parse_log(raw_log: String) -> String {
@@ -67,24 +66,27 @@ pub fn suggest_fix(raw_log: String) -> String {
 pub fn context7_query_from_raw_log(raw_log: &str) -> Option<Context7Query> {
     let log = normalize_log(raw_log);
 
-    match log.error_code.as_deref() {
-        Some(ERROR_DB_TIMEOUT) => Some(Context7Query {
-            library: "postgresql",
-            framework: "postgresql",
-            topic: "connection timeout",
-        }),
-        Some(ERROR_AUTH_INVALID_TOKEN) => Some(Context7Query {
-            library: "auth0",
-            framework: "docs",
-            topic: "jwt validation",
-        }),
-        Some(ERROR_UPSTREAM_502) => Some(Context7Query {
-            library: "nginx",
-            framework: "nginx",
-            topic: "502 bad gateway",
-        }),
-        _ => None,
-    }
+    let query = match log.error_code.as_deref() {
+        Some(ERROR_DB_TIMEOUT) => Context7Query {
+            search_query: "postgresql connection timeout pool".to_string(),
+            topic: "connection timeout".to_string(),
+        },
+        Some(ERROR_AUTH_INVALID_TOKEN) => Context7Query {
+            search_query: "auth jwt invalid token".to_string(),
+            topic: "jwt validation".to_string(),
+        },
+        Some(ERROR_UPSTREAM_502) => Context7Query {
+            search_query: "nginx upstream 502 bad gateway".to_string(),
+            topic: "502 bad gateway".to_string(),
+        },
+        _ if log.response_time_ms.unwrap_or(0) > 2000 => Context7Query {
+            search_query: "application performance latency timeout".to_string(),
+            topic: "performance tuning".to_string(),
+        },
+        _ => return None,
+    };
+
+    Some(query)
 }
 
 pub fn prompt_header_for_raw_log(raw_log: &str) -> &'static str {
