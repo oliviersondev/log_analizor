@@ -1,9 +1,10 @@
-use async_trait::async_trait;
 use std::collections::HashMap;
+use std::io;
 use std::sync::{Arc, Mutex};
 
-use strands_agents::ToolSpec;
-use strands_agents::tools::{AgentTool, ToolContext, ToolResult2};
+use rig::completion::ToolDefinition;
+use rig::tool::Tool;
+use serde::Deserialize;
 
 use crate::context7::{Context7Client, Context7Library};
 use crate::domain::{classify_incident, context7_query_from_raw_log, parse_log, suggest_fix};
@@ -22,12 +23,16 @@ struct Context7ResolutionError {
     candidates: Vec<String>,
 }
 
-fn extract_raw_log(input: &serde_json::Value) -> Result<String, String> {
-    input
-        .get("raw_log")
-        .and_then(serde_json::Value::as_str)
-        .map(std::string::ToString::to_string)
-        .ok_or_else(|| "Missing required parameter: raw_log".to_string())
+#[derive(Debug, Deserialize)]
+pub struct RawLogArgs {
+    raw_log: String,
+}
+
+fn missing_raw_log_error() -> io::Error {
+    io::Error::new(
+        io::ErrorKind::InvalidInput,
+        "Missing required parameter: raw_log",
+    )
 }
 
 fn score_library(search_query: &str, lib: &Context7Library) -> f64 {
@@ -132,72 +137,72 @@ async fn resolve_context7_snippets(
 #[derive(Clone, Default)]
 pub struct ParseLogTool;
 
-#[async_trait]
-impl AgentTool for ParseLogTool {
-    fn name(&self) -> &str {
-        "parse_log"
+impl Tool for ParseLogTool {
+    const NAME: &'static str = "parse_log";
+
+    type Error = io::Error;
+    type Args = RawLogArgs;
+    type Output = String;
+
+    async fn definition(&self, _prompt: String) -> ToolDefinition {
+        ToolDefinition {
+            name: Self::NAME.to_string(),
+            description: "Parse un log JSON brut et retourne un resume exploitable.".to_string(),
+            parameters: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "raw_log": {
+                        "type": "string",
+                        "description": "Log JSON brut a parser"
+                    }
+                },
+                "required": ["raw_log"]
+            }),
+        }
     }
 
-    fn description(&self) -> &str {
-        "Parse un log JSON brut et retourne un resume exploitable."
-    }
+    async fn call(&self, args: Self::Args) -> Result<Self::Output, Self::Error> {
+        if args.raw_log.trim().is_empty() {
+            return Err(missing_raw_log_error());
+        }
 
-    fn tool_spec(&self) -> ToolSpec {
-        ToolSpec::new(self.name(), self.description()).with_input_schema(serde_json::json!({
-            "type": "object",
-            "properties": {
-                "raw_log": {
-                    "type": "string",
-                    "description": "Log JSON brut a parser"
-                }
-            },
-            "required": ["raw_log"]
-        }))
-    }
-
-    async fn invoke(
-        &self,
-        input: serde_json::Value,
-        _context: &ToolContext,
-    ) -> Result<ToolResult2, String> {
-        let raw_log = extract_raw_log(&input)?;
-        Ok(ToolResult2::success(parse_log(raw_log)))
+        Ok(parse_log(args.raw_log))
     }
 }
 
 #[derive(Clone, Default)]
 pub struct ClassifyIncidentTool;
 
-#[async_trait]
-impl AgentTool for ClassifyIncidentTool {
-    fn name(&self) -> &str {
-        "classify_incident"
+impl Tool for ClassifyIncidentTool {
+    const NAME: &'static str = "classify_incident";
+
+    type Error = io::Error;
+    type Args = RawLogArgs;
+    type Output = String;
+
+    async fn definition(&self, _prompt: String) -> ToolDefinition {
+        ToolDefinition {
+            name: Self::NAME.to_string(),
+            description: "Classifie grossierement la severite du log.".to_string(),
+            parameters: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "raw_log": {
+                        "type": "string",
+                        "description": "Log JSON brut a classifier"
+                    }
+                },
+                "required": ["raw_log"]
+            }),
+        }
     }
 
-    fn description(&self) -> &str {
-        "Classifie grossierement la severite du log."
-    }
+    async fn call(&self, args: Self::Args) -> Result<Self::Output, Self::Error> {
+        if args.raw_log.trim().is_empty() {
+            return Err(missing_raw_log_error());
+        }
 
-    fn tool_spec(&self) -> ToolSpec {
-        ToolSpec::new(self.name(), self.description()).with_input_schema(serde_json::json!({
-            "type": "object",
-            "properties": {
-                "raw_log": {
-                    "type": "string",
-                    "description": "Log JSON brut a classifier"
-                }
-            },
-            "required": ["raw_log"]
-        }))
-    }
-
-    async fn invoke(
-        &self,
-        input: serde_json::Value,
-        _context: &ToolContext,
-    ) -> Result<ToolResult2, String> {
-        let raw_log = extract_raw_log(&input)?;
-        Ok(ToolResult2::success(classify_incident(raw_log)))
+        Ok(classify_incident(args.raw_log))
     }
 }
 
@@ -225,35 +230,36 @@ impl SuggestFixTool {
     }
 }
 
-#[async_trait]
-impl AgentTool for SuggestFixTool {
-    fn name(&self) -> &str {
-        "suggest_fix"
+impl Tool for SuggestFixTool {
+    const NAME: &'static str = "suggest_fix";
+
+    type Error = io::Error;
+    type Args = RawLogArgs;
+    type Output = String;
+
+    async fn definition(&self, _prompt: String) -> ToolDefinition {
+        ToolDefinition {
+            name: Self::NAME.to_string(),
+            description: "Propose une action simple a partir du log.".to_string(),
+            parameters: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "raw_log": {
+                        "type": "string",
+                        "description": "Log JSON brut pour suggestion"
+                    }
+                },
+                "required": ["raw_log"]
+            }),
+        }
     }
 
-    fn description(&self) -> &str {
-        "Propose une action simple a partir du log."
-    }
+    async fn call(&self, args: Self::Args) -> Result<Self::Output, Self::Error> {
+        if args.raw_log.trim().is_empty() {
+            return Err(missing_raw_log_error());
+        }
 
-    fn tool_spec(&self) -> ToolSpec {
-        ToolSpec::new(self.name(), self.description()).with_input_schema(serde_json::json!({
-            "type": "object",
-            "properties": {
-                "raw_log": {
-                    "type": "string",
-                    "description": "Log JSON brut pour suggestion"
-                }
-            },
-            "required": ["raw_log"]
-        }))
-    }
-
-    async fn invoke(
-        &self,
-        input: serde_json::Value,
-        _context: &ToolContext,
-    ) -> Result<ToolResult2, String> {
-        let raw_log = extract_raw_log(&input)?;
+        let raw_log = args.raw_log;
         let base_suggestion = suggest_fix(raw_log.clone());
 
         let context7_section = match (self.context7_enabled, self.context7_api_key.as_deref()) {
@@ -269,7 +275,7 @@ impl AgentTool for SuggestFixTool {
             }
             (true, Some(api_key)) => {
                 let query = context7_query_from_raw_log(&raw_log)
-                    .ok_or_else(|| "No Context7 mapping for this log".to_string())?;
+                    .ok_or_else(|| io::Error::other("No Context7 mapping for this log"))?;
 
                 let cache_key = format!("{}::{}", query.search_query, query.topic);
 
@@ -335,6 +341,6 @@ impl AgentTool for SuggestFixTool {
 
         let enriched = format!("{base_suggestion}\n\n{context7_section}");
 
-        Ok(ToolResult2::success(enriched))
+        Ok(enriched)
     }
 }
