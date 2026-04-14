@@ -30,6 +30,7 @@
   - `CONTEXT7_ENABLED` (optional, enables Context7 outbound calls)
   - `CONTEXT7_API_KEY` (optional, used to enrich `suggest_fix`)
   - `CONTEXT7_DEBUG` (optional, prints tested Context7 candidates)
+  - `STREAM_DEBUG` (optional, prints verbose stream events in `main`)
 - `.env` is gitignored; do not commit local secrets.
 - For local execution, Ollama service must be running (for example: `ollama serve`).
 
