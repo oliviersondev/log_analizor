@@ -4,7 +4,7 @@
 - Single Rust crate (`edition = 2024`) with bin + lib split.
 - Runtime entrypoint is `src/main.rs`; internal modules are exported from `src/lib.rs`.
 - No workspace, no CI config, no codegen pipeline; keep changes small and local.
-- Runtime depends on local Ollama (`OllamaModel`), not Bedrock.
+- Runtime depends on local Ollama via `rig::providers::ollama`, not Bedrock.
 
 ## Verified Commands
 - Prefer Make targets when possible:
@@ -33,14 +33,15 @@
 - `.env` is gitignored; do not commit local secrets.
 - For local execution, Ollama service must be running (for example: `ollama serve`).
 
-## Strands-Specific Gotcha
-- Do not reintroduce `#[tool]` macro usage for tools in this repo.
-- With the pinned dependency set in `Cargo.toml`, macro-generated code is incompatible here; tools are implemented manually via `AgentTool` (`ParseLogTool`, `ClassifyIncidentTool`, `SuggestFixTool`).
+## Rig-Specific Gotcha
+- `rig-core` is used with `derive` enabled.
+- Prefer `#[rig::tool_macro]` for simple stateless tools (`ParseLogTool`, `ClassifyIncidentTool`).
+- Keep complex stateful tools implemented manually with `rig::tool::Tool` (`SuggestFixTool`).
 
 ## Code Structure That Agents Should Preserve
-- Keep the layering: `main` (wiring) -> `config` (env) + `tools` (AgentTool wrappers) -> `domain` (business logic).
+- Keep the layering: `main` (wiring) -> `config` (env) + `tools` (wrappers Tool Rig) -> `domain` (business logic).
 - Core parsing/classification helpers stay in `domain` (`parse_log`, `classify_incident`, `suggest_fix`, `infer_cause`).
-- Tool structs stay thin wrappers around domain helpers; keep business logic out of `invoke` bodies.
+- Tool structs stay thin wrappers around domain helpers; keep business logic out of `call` bodies.
 - `suggest_fix` enriches output through Context7 by searching available libraries first, then querying docs on top ranked candidates.
 - `sample_logs` provides randomized local scenarios for manual runs; keep it focused on representative formats/errors.
 - Current operator-facing strings are French-oriented; keep language consistency unless asked to change it.

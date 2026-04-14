@@ -1,6 +1,6 @@
 # log_analizor
 
-Petit outil Rust pour analyser des logs applicatifs avec un agent Strands en local via Ollama.
+Petit outil Rust pour analyser des logs applicatifs avec un agent Rig en local via Ollama.
 
 Formats pris en charge par les outils metier:
 - JSON applicatif (structure `level/service/message/timestamp/...`)
@@ -61,12 +61,14 @@ Par defaut, `main` choisit aleatoirement un scenario de log dans `src/sample_log
 
 ## Comportement Context7
 
-- `suggest_fix` est force au moins une fois dans le flux principal (`main`) via un appel direct de tool.
+- `suggest_fix` est disponible comme outil de l'agent. Il est appele seulement si le modele le juge necessaire pendant le flux multi-turn.
 - Le choix de la librairie Context7 est dynamique: recherche `/api/v2/libs/search`, scoring local des candidats, puis fallback sur les 3 meilleurs IDs.
 - La sortie de `suggest_fix` inclut toujours un bloc `Context7` explicite:
   - `called: yes` quand l'appel API a ete tente
   - `called: no` quand l'appel n'est pas tente (ex: `CONTEXT7_API_KEY` absente ou log non mappe)
 - En cas d'appel, le bloc contient soit des `snippets`, soit un `error`.
+
+Le binaire principal (`main`) affiche la reponse en mode streaming avec des evenements (`thinking`, `tool-call`, `tool-result`) puis un bloc final avec l'usage tokens.
 
 Le prompt principal est adapte automatiquement au format detecte (JSON, CloudFront, syslog, texte libre) au lieu d'envoyer une consigne generique.
 
@@ -119,11 +121,12 @@ Apr 08 12:34:56 prod-host sshd[1234]: Failed password for invalid user admin fro
 - `src/domain/mod.rs`: logique metier (parse/classify/suggest + mapping Context7)
 - `src/domain/normalize.rs`: normalisation multi-format (JSON/CloudFront/syslog/texte)
 - `src/sample_logs.rs`: jeu de logs de test multi-format choisi aleatoirement par `main`
-- `src/tools.rs`: wrappers `AgentTool` qui deleguent a `domain`
-- Outils agent implementes manuellement via `AgentTool`:
-  - `ParseLogTool`
-  - `ClassifyIncidentTool`
-  - `SuggestFixTool`
+- `src/tools/mod.rs`: point d'entree des outils + re-exports
+- `src/tools/parse_log.rs`: outil `ParseLogTool` via `#[rig::tool_macro]`
+- `src/tools/classify_incident.rs`: outil `ClassifyIncidentTool` via `#[rig::tool_macro]`
+- `src/tools/suggest_fix.rs`: outil `SuggestFixTool` via implementation `rig::tool::Tool`
+- `src/tools/context7_enrichment.rs`: resolution/scoring/fallback Context7
+- `src/tools/args.rs`: args d'outils partages (`raw_log`)
 - Helpers metier (dans `domain`):
   - `parse_log`
   - `classify_incident`
