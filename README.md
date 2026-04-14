@@ -30,11 +30,13 @@ OLLAMA_HOST=http://localhost:11434
 CONTEXT7_ENABLED=true
 CONTEXT7_API_KEY=<token_context7>
 CONTEXT7_DEBUG=false
+STREAM_DEBUG=false
 ```
 
 `CONTEXT7_ENABLED=true` active les appels Context7. Si false, aucune donnee n'est envoyee a Context7.
 `CONTEXT7_API_KEY` est optionnelle. Sans cette cle, `suggest_fix` reste disponible mais indique explicitement que Context7 n'a pas ete appele.
 `CONTEXT7_DEBUG=true` active l'affichage des candidats Context7 testes (`candidates_tested`).
+`STREAM_DEBUG=true` active l'affichage des evenements de stream (`thinking`, `tool-call`, `tool-result`). Par defaut (`false`), seuls le texte de reponse et le bloc final sont affiches.
 
 ## Lancement rapide
 
@@ -68,7 +70,7 @@ Par defaut, `main` choisit aleatoirement un scenario de log dans `src/sample_log
   - `called: no` quand l'appel n'est pas tente (ex: `CONTEXT7_API_KEY` absente ou log non mappe)
 - En cas d'appel, le bloc contient soit des `snippets`, soit un `error`.
 
-Le binaire principal (`main`) affiche la reponse en mode streaming avec des evenements (`thinking`, `tool-call`, `tool-result`) puis un bloc final avec l'usage tokens.
+Le binaire principal (`main`) affiche la reponse en mode streaming. Les evenements verbeux (`thinking`, `tool-call`, `tool-result`) sont affiches seulement si `STREAM_DEBUG=true`, puis un bloc final avec l'usage tokens.
 
 Le prompt principal est adapte automatiquement au format detecte (JSON, CloudFront, syslog, texte libre) au lieu d'envoyer une consigne generique.
 

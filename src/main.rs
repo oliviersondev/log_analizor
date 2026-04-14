@@ -14,13 +14,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config = AppConfig::from_env()?;
     let sample = pick_random_sample();
 
-    if config.context7_debug {
-        println!(
-            "Context7 config => enabled={}, debug={}, api_key_present={}",
-            config.context7_enabled,
-            config.context7_debug,
-            config.context7_api_key.is_some()
-        );
+    if config.should_print_debug_config() {
+        println!("{}", config.debug_config_line());
     }
 
     let client = ollama::Client::builder()
@@ -66,38 +61,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Ok(MultiTurnStreamItem::StreamAssistantItem(StreamedAssistantContent::Reasoning(
                 reasoning,
             ))) => {
-                println!("\n[thinking] {}", reasoning.display_text());
+                if config.stream_debug {
+                    println!("\n[thinking] {}", reasoning.display_text());
+                }
             }
             Ok(MultiTurnStreamItem::StreamAssistantItem(
                 StreamedAssistantContent::ReasoningDelta { reasoning, .. },
             )) => {
-                println!("\n[thinking-delta] {reasoning}");
+                if config.stream_debug {
+                    println!("\n[thinking-delta] {reasoning}");
+                }
             }
             Ok(MultiTurnStreamItem::StreamAssistantItem(StreamedAssistantContent::ToolCall {
                 tool_call,
                 internal_call_id,
             })) => {
-                println!(
-                    "\n[tool-call] internal_id={} name={} args={}",
-                    internal_call_id, tool_call.function.name, tool_call.function.arguments
-                );
+                if config.stream_debug {
+                    println!(
+                        "\n[tool-call] internal_id={} name={} args={}",
+                        internal_call_id, tool_call.function.name, tool_call.function.arguments
+                    );
+                }
             }
             Ok(MultiTurnStreamItem::StreamAssistantItem(
                 StreamedAssistantContent::ToolCallDelta { id, content, .. },
             )) => {
-                let delta = serde_json::to_string(&content)?;
-                println!("\n[tool-call-delta] id={} content={delta}", id);
+                if config.stream_debug {
+                    let delta = serde_json::to_string(&content)?;
+                    println!("\n[tool-call-delta] id={} content={delta}", id);
+                }
             }
             Ok(MultiTurnStreamItem::StreamAssistantItem(StreamedAssistantContent::Final(_))) => {}
             Ok(MultiTurnStreamItem::StreamUserItem(StreamedUserContent::ToolResult {
                 tool_result,
                 internal_call_id,
             })) => {
-                let tool_content = serde_json::to_string(&tool_result.content)?;
-                println!(
-                    "\n[tool-result] internal_id={} id={} content={tool_content}",
-                    internal_call_id, tool_result.id
-                );
+                if config.stream_debug {
+                    let tool_content = serde_json::to_string(&tool_result.content)?;
+                    println!(
+                        "\n[tool-result] internal_id={} id={} content={tool_content}",
+                        internal_call_id, tool_result.id
+                    );
+                }
             }
             Ok(MultiTurnStreamItem::FinalResponse(final_response)) => {
                 let usage = final_response.usage();
