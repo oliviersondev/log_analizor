@@ -65,6 +65,8 @@ ollama serve
 make run-ui
 ```
 
+Note Linux (UI seulement): `run-ui` requiert les bibliotheques systeme GTK/WebKit. La CLI (`make run`, `make run-demo`) ne depend pas de GTK/WebKit.
+
 Ou en direct:
 
 ```bash
@@ -83,7 +85,7 @@ Le binaire principal (`main`) attend un log explicite (`--log` ou `stdin`) et st
 - `make run LOG='...'` : lance le CLI reel
 - `cat fichier.log | make run` : lance le CLI reel via stdin
 - `make run-demo` : lance le mode demo (sample aleatoire)
-- `make run-ui` : lance l'interface desktop Dioxus
+- `make run-ui` : lance l'interface desktop Dioxus (feature `ui`)
 
 ## Comportement Context7
 
@@ -140,6 +142,9 @@ Apr 08 12:34:56 prod-host sshd[1234]: Failed password for invalid user admin fro
   - verifier `CONTEXT7_API_KEY` dans `.env`
   - verifier que l'API key est valide
   - verifier que le log matche un `error_code` mappe (`DB_TIMEOUT`, `AUTH_INVALID_TOKEN`, `UPSTREAM_502`)
+- Erreurs de build UI Linux (GTK/WebKit manquants):
+  - la CLI reste utilisable sans prerequis UI (`make run`, `make run-demo`)
+  - pour l'UI, installer les dependances GTK/WebKit de votre distribution puis relancer `make run-ui`
 
 ## Architecture (actuelle)
 

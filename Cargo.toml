@@ -11,4 +11,21 @@ dotenvy = "=0.15.7"
 reqwest = { version = "=0.12.28", features = ["json", "rustls-tls"], default-features = false }
 rig-core = { version = "=0.34.0", features = ["derive"] }
 futures = "=0.3.32"
-dioxus = { version = "=0.6.3", features = ["desktop"] }
+dioxus = { version = "=0.6.3", features = ["desktop"], optional = true }
+
+[features]
+default = []
+ui = ["dep:dioxus"]
+
+[[bin]]
+name = "log_analizor"
+path = "src/main.rs"
+
+[[bin]]
+name = "demo"
+path = "src/bin/demo.rs"
+
+[[bin]]
+name = "ui"
+path = "src/bin/ui/main.rs"
+required-features = ["ui"]
