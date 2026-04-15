@@ -1,4 +1,4 @@
-.PHONY: help check fmt clippy test test-one run clean
+.PHONY: help check fmt clippy test test-one run run-ui build-ui clean
 
 help:
 	@printf "Targets:\n"
@@ -8,6 +8,8 @@ help:
 	@printf "  make test       - cargo test\n"
 	@printf "  make test-one   - cargo test <name> -- --exact (use TEST=...)\n"
 	@printf "  make run        - cargo run\n"
+	@printf "  make run-ui     - cargo run --bin ui\n"
+	@printf "  make build-ui   - cargo build --bin ui\n"
 	@printf "  make clean      - cargo clean\n"
 
 check:
@@ -28,6 +30,12 @@ test-one:
 
 run:
 	cargo run
+
+run-ui:
+	cargo run --bin ui
+
+build-ui:
+	cargo build --bin ui
 
 clean:
 	cargo clean

@@ -45,6 +45,13 @@ ollama serve
 make run
 ```
 
+Interface desktop (Dioxus):
+
+```bash
+ollama serve
+cargo run --bin ui
+```
+
 Ou en direct:
 
 ```bash
@@ -60,6 +67,7 @@ Par defaut, `main` choisit aleatoirement un scenario de log dans `src/sample_log
 - `make clippy` : lint
 - `make test` : tests
 - `make test-one TEST=nom_test` : test unique exact
+- `cargo run --bin ui` : lance l'interface desktop Dioxus
 
 ## Comportement Context7
 
@@ -118,7 +126,9 @@ Apr 08 12:34:56 prod-host sshd[1234]: Failed password for invalid user admin fro
 ## Architecture (actuelle)
 
 - `src/main.rs`: bootstrap runtime (chargement config, creation agent, invocation)
+- `src/bin/ui.rs`: interface desktop Dioxus (textarea + bouton Analyser + sortie streaming)
 - `src/lib.rs`: point d'entree des modules internes
+- `src/analyzer.rs`: pipeline d'analyse partage (prompt + agent + stream)
 - `src/config.rs`: chargement `.env` + validation des variables requises
 - `src/domain/mod.rs`: logique metier (parse/classify/suggest + mapping Context7)
 - `src/domain/normalize.rs`: normalisation multi-format (JSON/CloudFront/syslog/texte)
@@ -140,6 +150,6 @@ Apr 08 12:34:56 prod-host sshd[1234]: Failed password for invalid user admin fro
 - [ ] Ajouter une documentation d'utilisation avec Context7 (installation, configuration, exemples de requetes).
   - [ ] Recuperer les Lybrary dispo sur Context7
   - [ ] Analizer type de library la plus adaper et requeter Context7 en fonction
-- [ ] Integrer une interface front avec Dioxus pour l'analyse des logs.
+- [~] Integrer une interface front avec Dioxus pour l'analyse des logs.
   - [ ] Permettre le glisser-deposer d'un fichier de log.
-  - [ ] Permettre le copier-coller de texte de log brut.
+  - [x] Permettre le copier-coller de texte de log brut.
