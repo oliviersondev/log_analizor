@@ -42,23 +42,36 @@ STREAM_DEBUG=false
 
 ```bash
 ollama serve
-make run
+make run LOG='{"level":"ERROR","service":"billing","message":"Database timeout","timestamp":"2026-04-08T10:00:00Z","error_code":"DB_TIMEOUT","response_time_ms":3200}'
+```
+
+Ou avec un fichier log:
+
+```bash
+cat /path/to/log.txt | make run
+```
+
+Mode demo (sample aleatoire):
+
+```bash
+ollama serve
+make run-demo
 ```
 
 Interface desktop (Dioxus):
 
 ```bash
 ollama serve
-cargo run --bin ui
+make run-ui
 ```
 
 Ou en direct:
 
 ```bash
-cargo run
+cargo run -- --log '<log brut>'
 ```
 
-Par defaut, `main` choisit aleatoirement un scenario de log dans `src/sample_logs.rs` a chaque execution pour tester des cas differents.
+Le binaire principal (`main`) attend un log explicite (`--log` ou `stdin`) et stream la reponse finale.
 
 ## Commandes utiles
 
@@ -67,7 +80,10 @@ Par defaut, `main` choisit aleatoirement un scenario de log dans `src/sample_log
 - `make clippy` : lint
 - `make test` : tests
 - `make test-one TEST=nom_test` : test unique exact
-- `cargo run --bin ui` : lance l'interface desktop Dioxus
+- `make run LOG='...'` : lance le CLI reel
+- `cat fichier.log | make run` : lance le CLI reel via stdin
+- `make run-demo` : lance le mode demo (sample aleatoire)
+- `make run-ui` : lance l'interface desktop Dioxus
 
 ## Comportement Context7
 
@@ -78,7 +94,9 @@ Par defaut, `main` choisit aleatoirement un scenario de log dans `src/sample_log
   - `called: no` quand l'appel n'est pas tente (ex: `CONTEXT7_API_KEY` absente ou log non mappe)
 - En cas d'appel, le bloc contient soit des `snippets`, soit un `error`.
 
-Le binaire principal (`main`) affiche la reponse en mode streaming. Les evenements verbeux (`thinking`, `tool-call`, `tool-result`) sont affiches seulement si `STREAM_DEBUG=true`, puis un bloc final avec l'usage tokens.
+Le CLI reel (`main`) affiche la reponse en mode streaming. Les evenements verbeux (`thinking`, `tool-call`, `tool-result`) sont affiches seulement si `STREAM_DEBUG=true`, puis un bloc final avec l'usage tokens.
+
+Le mode demo (`src/bin/demo.rs`) est un smoke test manuel: il choisit aleatoirement un scenario dans `src/sample_logs.rs` et affiche la meme sortie streaming.
 
 Le prompt principal est adapte automatiquement au format detecte (JSON, CloudFront, syslog, texte libre) au lieu d'envoyer une consigne generique.
 
@@ -126,13 +144,15 @@ Apr 08 12:34:56 prod-host sshd[1234]: Failed password for invalid user admin fro
 ## Architecture (actuelle)
 
 - `src/main.rs`: bootstrap runtime (chargement config, creation agent, invocation)
-- `src/bin/ui.rs`: interface desktop Dioxus (textarea + bouton Analyser + sortie streaming)
+- `src/bin/demo.rs`: mode demo CLI (sample aleatoire pour test manuel)
+- `src/bin/ui/main.rs`: interface desktop Dioxus (textarea + bouton Analyser + sortie streaming)
+- `src/bin/ui/state.rs`: logique UI locale (validation input + aggregation streaming)
 - `src/lib.rs`: point d'entree des modules internes
 - `src/analyzer.rs`: pipeline d'analyse partage (prompt + agent + stream)
 - `src/config.rs`: chargement `.env` + validation des variables requises
 - `src/domain/mod.rs`: logique metier (parse/classify/suggest + mapping Context7)
 - `src/domain/normalize.rs`: normalisation multi-format (JSON/CloudFront/syslog/texte)
-- `src/sample_logs.rs`: jeu de logs de test multi-format choisi aleatoirement par `main`
+- `src/sample_logs.rs`: jeu de logs de test multi-format choisi aleatoirement par le mode demo
 - `src/tools/mod.rs`: point d'entree des outils + re-exports
 - `src/tools/parse_log.rs`: outil `ParseLogTool` via `#[rig::tool_macro]`
 - `src/tools/classify_incident.rs`: outil `ClassifyIncidentTool` via `#[rig::tool_macro]`
