@@ -4,6 +4,7 @@ use std::io::Write;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // TODO c'est un test du coup ça
     let sample = pick_random_sample();
 
     let prompt = analysis_prompt(sample.raw);
