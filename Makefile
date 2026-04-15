@@ -9,8 +9,8 @@ help:
 	@printf "  make test-one   - cargo test <name> -- --exact (use TEST=...)\n"
 	@printf "  make run        - cargo run (or with LOG='...')\n"
 	@printf "  make run-demo   - cargo run --bin demo\n"
-	@printf "  make run-ui     - cargo run --bin ui\n"
-	@printf "  make build-ui   - cargo build --bin ui\n"
+	@printf "  make run-ui     - cargo run --bin ui --features ui\n"
+	@printf "  make build-ui   - cargo build --bin ui --features ui\n"
 	@printf "  make clean      - cargo clean\n"
 
 check:
@@ -36,10 +36,10 @@ run-demo:
 	cargo run --bin demo
 
 run-ui:
-	cargo run --bin ui
+	cargo run --bin ui --features ui
 
 build-ui:
-	cargo build --bin ui
+	cargo build --bin ui --features ui
 
 clean:
 	cargo clean
