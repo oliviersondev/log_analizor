@@ -23,7 +23,6 @@ fn parse_raw_log_input() -> Result<String, std::io::Error> {
 
     let mut i = 0;
     while i < args.len() {
-        // TODO plutot un foreach q'un while
         match args[i].as_str() {
             "--log" | "-l" => {
                 let value = args.get(i + 1).ok_or_else(|| {
