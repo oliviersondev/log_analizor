@@ -2,6 +2,7 @@ use std::ffi::OsString;
 use std::io::{IsTerminal, Read};
 
 use clap::Parser;
+use clap::error::ErrorKind;
 
 const DEFAULT_MAX_LOG_BYTES: usize = 1_048_576;
 
@@ -34,8 +35,17 @@ where
     I: IntoIterator<Item = T>,
     T: Into<OsString> + Clone,
 {
-    let parsed = CliArgs::try_parse_from(args)
-        .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidInput, err.to_string()))?;
+    let parsed = CliArgs::try_parse_from(args).map_err(|err| {
+        if matches!(
+            err.kind(),
+            ErrorKind::DisplayHelp | ErrorKind::DisplayVersion
+        ) {
+            let _ = err.print();
+            std::process::exit(0);
+        }
+
+        std::io::Error::new(std::io::ErrorKind::InvalidInput, err.to_string())
+    })?;
 
     Ok(CliInput {
         raw_log: parsed.raw_log,
