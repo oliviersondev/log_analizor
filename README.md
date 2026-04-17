@@ -75,7 +75,7 @@ Ou en direct:
 cargo run -- --log '<log brut>'
 ```
 
-Le binaire principal (`main`) attend un log explicite (`--log` ou `stdin`) et stream la reponse finale.
+Le binaire principal (`default-run = log_analizor`) attend un log explicite (`--log` ou `stdin`) et stream la reponse finale.
 
 ## Commandes utiles
 
@@ -88,6 +88,7 @@ Le binaire principal (`main`) attend un log explicite (`--log` ou `stdin`) et st
 - `cat fichier.log | make run` : lance le CLI reel via stdin
 - `make run-demo` : lance le mode demo (sample aleatoire)
 - `make run-ui` : lance l'interface desktop Dioxus (feature `ui`)
+- `make check-all` : execute `fmt --check`, `clippy`, puis `test`
 
 ## Comportement Context7
 
@@ -98,7 +99,7 @@ Le binaire principal (`main`) attend un log explicite (`--log` ou `stdin`) et st
   - `called: no` quand l'appel n'est pas tente (ex: `CONTEXT7_API_KEY` absente ou log non mappe)
 - En cas d'appel, le bloc contient soit des `snippets`, soit un `error`.
 
-Le CLI reel (`main`) affiche la reponse en mode streaming. Les evenements verbeux (`thinking`, `tool-call`, `tool-result`) sont affiches seulement si `STREAM_DEBUG=true`, puis un bloc final avec l'usage tokens.
+Le CLI reel (`main`) affiche la reponse en mode streaming via la couche `app`. Les evenements verbeux (`thinking`, `tool-call`, `tool-result`) sont emis par `analyzer` et rendus seulement si `STREAM_DEBUG=true`, puis un bloc final avec l'usage tokens.
 
 Le mode demo (`src/bin/demo.rs`) est un smoke test manuel: il choisit aleatoirement un scenario dans `src/sample_logs.rs` et affiche la meme sortie streaming.
 
@@ -150,12 +151,19 @@ Apr 08 12:34:56 prod-host sshd[1234]: Failed password for invalid user admin fro
 
 ## Architecture (actuelle)
 
-- `src/main.rs`: bootstrap runtime (chargement config, creation agent, invocation)
-- `src/bin/demo.rs`: mode demo CLI (sample aleatoire pour test manuel)
-- `src/bin/ui/main.rs`: interface desktop Dioxus (textarea + bouton Analyser + sortie streaming)
-- `src/bin/ui/state.rs`: logique UI locale (validation input + aggregation streaming)
+- `src/main.rs`: bootstrap CLI ultra-fin (delegue a `src/app/runner.rs`)
+- `src/app/input.rs`: parsing CLI (`clap`) + lecture `stdin` + limites d'entree
+- `src/app/runner.rs`: orchestration d'analyse streaming partagee (CLI/demo/UI)
+- `src/app/events.rs`: mapping des `AnalysisEvent` vers rendu terminal/UI
+- `src/app/error.rs`: erreurs applicatives (`Input/Analyze/Output`)
+- `src/bin/demo.rs`: mode demo CLI (sample aleatoire + runner partage)
+- `src/bin/ui/main.rs`: composition UI Dioxus (bootstrap + wiring actions)
+- `src/bin/ui/model.rs`: mini-model UI (`UiState`, `UiAction`, transitions)
+- `src/bin/ui/components/form.rs`: bloc formulaire (textarea + submit)
+- `src/bin/ui/components/status.rs`: bloc statut de streaming
+- `src/bin/ui/components/output.rs`: bloc sortie + erreurs UI
 - `src/lib.rs`: point d'entree des modules internes
-- `src/analyzer.rs`: pipeline d'analyse partage (prompt + agent + stream)
+- `src/analyzer.rs`: mecanique Rig/Ollama + emission d'evenements (sans `println!`)
 - `src/config.rs`: chargement `.env` + validation des variables requises
 - `src/domain/mod.rs`: logique metier (parse/classify/suggest + mapping Context7)
 - `src/domain/normalize.rs`: normalisation multi-format (JSON/CloudFront/syslog/texte)

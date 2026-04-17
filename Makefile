@@ -1,4 +1,4 @@
-.PHONY: help check fmt clippy test test-one run run-demo run-ui build-ui clean
+.PHONY: help check fmt clippy test test-one run run-demo run-ui check-all build-ui clean
 
 help:
 	@printf "Targets:\n"
@@ -10,6 +10,7 @@ help:
 	@printf "  make run        - cargo run (or with LOG='...')\n"
 	@printf "  make run-demo   - cargo run --bin demo\n"
 	@printf "  make run-ui     - cargo run --bin ui --features ui\n"
+	@printf "  make check-all  - fmt check + clippy + test\n"
 	@printf "  make build-ui   - cargo build --bin ui --features ui\n"
 	@printf "  make clean      - cargo clean\n"
 
@@ -37,6 +38,11 @@ run-demo:
 
 run-ui:
 	cargo run --bin ui --features ui
+
+check-all:
+	cargo fmt --all -- --check
+	cargo clippy --all-targets --all-features
+	cargo test
 
 build-ui:
 	cargo build --bin ui --features ui
