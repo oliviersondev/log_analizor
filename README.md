@@ -31,12 +31,14 @@ CONTEXT7_ENABLED=true
 CONTEXT7_API_KEY=<token_context7>
 CONTEXT7_DEBUG=false
 STREAM_DEBUG=false
+MAX_LOG_BYTES=1048576
 ```
 
 `CONTEXT7_ENABLED=true` active les appels Context7. Si false, aucune donnee n'est envoyee a Context7.
 `CONTEXT7_API_KEY` est optionnelle. Sans cette cle, `suggest_fix` reste disponible mais indique explicitement que Context7 n'a pas ete appele.
 `CONTEXT7_DEBUG=true` active l'affichage des candidats Context7 testes (`candidates_tested`).
 `STREAM_DEBUG=true` active l'affichage des evenements de stream (`thinking`, `tool-call`, `tool-result`). Par defaut (`false`), seuls le texte de reponse et le bloc final sont affiches.
+`MAX_LOG_BYTES` (optionnelle, defaut `1048576`) limite la taille de log acceptee via `stdin`. Au-dela, le CLI refuse l'entree.
 
 ## Lancement rapide
 

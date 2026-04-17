@@ -13,7 +13,7 @@ fn main() {
 #[component]
 fn App() -> Element {
     let mut raw_log = use_signal(String::new);
-    let mut output = use_signal(String::new);
+    let mut output = use_signal(|| String::with_capacity(4 * 1024));
     let mut is_loading = use_signal(|| false);
     let mut error_message = use_signal(|| Option::<String>::None);
 
@@ -46,7 +46,7 @@ fn App() -> Element {
 
                             is_loading.set(true);
                             error_message.set(None);
-                            output.set(String::new());
+                            output.with_mut(|out| out.clear());
 
                             let mut output_signal = output;
                             let mut loading_signal = is_loading;
@@ -54,9 +54,7 @@ fn App() -> Element {
 
                             spawn(async move {
                                 let run_result = analyze_raw_log_stream(raw, move |event| {
-                                    let mut next = output_signal();
-                                    append_stream_event(&mut next, event);
-                                    output_signal.set(next);
+                                    output_signal.with_mut(|out| append_stream_event(out, event));
                                 })
                                 .await;
 
