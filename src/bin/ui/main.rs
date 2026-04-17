@@ -1,8 +1,13 @@
-mod state;
+mod components;
+mod model;
 
 use dioxus::prelude::*;
-use log_analizor::analyzer::analyze_raw_log_stream;
-use state::{append_stream_event, validate_raw_log};
+use log_analizor::analyzer::Analyzer;
+use log_analizor::app::runner;
+
+use components::form::LogForm;
+use components::output::OutputPanel;
+use model::{UiAction, UiState, validate_raw_log};
 
 const APP_CSS: &str = include_str!("../../../assets/ui.css");
 
@@ -21,10 +26,8 @@ fn main() {
 
 #[component]
 fn App() -> Element {
-    let mut raw_log = use_signal(String::new);
-    let mut output = use_signal(|| String::with_capacity(4 * 1024));
-    let mut is_loading = use_signal(|| false);
-    let mut error_message = use_signal(|| Option::<String>::None);
+    let mut ui_state = use_signal(UiState::default);
+    let analyzer = use_signal(|| Analyzer::from_env().map_err(|err| err.to_string()));
 
     rsx! {
         style { "{APP_CSS}" }
@@ -33,59 +36,63 @@ fn App() -> Element {
                 h1 { class: "title", "Analyseur de logs" }
                 p { class: "subtitle", "Collez un log brut, puis cliquez sur Analyser pour suivre la reponse en streaming." }
 
-                textarea {
-                    class: "editor",
-                    placeholder: "Exemple: log JSON ou syslog a analyser",
-                    value: raw_log(),
-                    oninput: move |evt| raw_log.set(evt.value())
-                }
+                LogForm {
+                    raw_log: ui_state().raw_log.clone(),
+                    is_loading: ui_state().is_loading,
+                    on_input: move |value: String| {
+                        ui_state.with_mut(|state| state.apply(UiAction::RawLogChanged(value)));
+                    },
+                    on_submit: move |_| {
+                        let raw = match validate_raw_log(&ui_state().raw_log) {
+                            Ok(value) => value,
+                            Err(message) => {
+                                ui_state.with_mut(|state| state.apply(UiAction::SubmitFailed(message)));
+                                return;
+                            }
+                        };
 
-                div { class: "controls",
-                    button {
-                        class: "button",
-                        disabled: is_loading(),
-                        onclick: move |_| {
-                            let raw = match validate_raw_log(&raw_log()) {
-                                Ok(value) => value,
-                                Err(message) => {
-                                    error_message.set(Some(message));
-                                    return;
-                                }
-                            };
+                        let analyzer_instance = match analyzer().clone() {
+                            Ok(instance) => instance,
+                            Err(message) => {
+                                ui_state.with_mut(|state| state.apply(UiAction::SubmitFailed(message)));
+                                return;
+                            }
+                        };
 
-                            is_loading.set(true);
-                            error_message.set(None);
-                            output.with_mut(|out| out.clear());
+                        ui_state.with_mut(|state| {
+                            state.apply(UiAction::SubmitStarted {
+                                raw_log: raw.clone(),
+                            })
+                        });
 
-                            let mut output_signal = output;
-                            let mut loading_signal = is_loading;
-                            let mut error_signal = error_message;
+                        let mut state_signal = ui_state;
+                        spawn(async move {
+                            let run_result = runner::run_raw_log_stream(
+                                &analyzer_instance,
+                                raw,
+                                move |event| {
+                                    state_signal.with_mut(|state| {
+                                        state.apply(UiAction::StreamEvent(event))
+                                    });
+                                },
+                            )
+                            .await;
 
-                            spawn(async move {
-                                let run_result = analyze_raw_log_stream(raw, move |event| {
-                                    output_signal.with_mut(|out| append_stream_event(out, event));
-                                })
-                                .await;
+                            if let Err(err) = run_result {
+                                state_signal.with_mut(|state| {
+                                    state.apply(UiAction::SubmitFailed(err.to_string()))
+                                });
+                            }
 
-                                if let Err(err) = run_result {
-                                    error_signal.set(Some(err.to_string()));
-                                }
-
-                                loading_signal.set(false);
-                            });
-                        },
-                        if is_loading() { "Analyse en cours..." } else { "Analyser" }
+                            state_signal.with_mut(|state| state.apply(UiAction::SubmitFinished));
+                        });
                     }
-                    if is_loading() {
-                        span { class: "status", "Streaming en direct..." }
-                    }
                 }
 
-                if let Some(err) = error_message() {
-                    div { class: "error", "Erreur: {err}" }
+                OutputPanel {
+                    output: ui_state().output.clone(),
+                    error_message: ui_state().error_message.clone(),
                 }
-
-                pre { class: "output", "{output}" }
             }
         }
     }

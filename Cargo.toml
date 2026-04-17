@@ -2,12 +2,14 @@
 name = "log_analizor"
 version = "0.1.0"
 edition = "2024"
+default-run = "log_analizor"
 
 [dependencies]
 tokio = { version = "=1.51.0", features = ["full"] }
 serde = { version = "=1.0.228", features = ["derive"] }
 serde_json = "=1.0.149"
 dotenvy = "=0.15.7"
+clap = { version = "=4.5.50", features = ["derive"] }
 reqwest = { version = "=0.12.28", features = ["json", "rustls-tls"], default-features = false }
 rig-core = { version = "=0.34.0", features = ["derive"] }
 futures = "=0.3.32"

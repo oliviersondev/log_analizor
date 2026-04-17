@@ -1,4 +1,5 @@
 pub mod analyzer;
+pub mod app;
 pub mod config;
 pub mod context7;
 pub mod domain;
