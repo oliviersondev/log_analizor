@@ -19,7 +19,7 @@ fn App() -> Element {
 
     rsx! {
         style { "{APP_CSS}" }
-        div { class: "app-shell",
+        div { class: "app-shell",// TODO le cadre de l'app a l'ouverture ne contient pas tout le contenu
             div { class: "card",
                 h1 { class: "title", "Analyseur de logs" }
                 p { class: "subtitle", "Collez un log brut, puis cliquez sur Analyser pour suivre la reponse en streaming." }
