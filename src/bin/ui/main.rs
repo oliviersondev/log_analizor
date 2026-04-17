@@ -7,7 +7,16 @@ use state::{append_stream_event, validate_raw_log};
 const APP_CSS: &str = include_str!("../../../assets/ui.css");
 
 fn main() {
-    dioxus::launch(App);
+    dioxus::LaunchBuilder::desktop()
+        .with_cfg(
+            dioxus::desktop::Config::new().with_window(
+                dioxus::desktop::tao::window::WindowBuilder::new()
+                    .with_title("Analyseur de logs")
+                    .with_inner_size(dioxus::desktop::tao::dpi::LogicalSize::new(980.0, 760.0))
+                    .with_min_inner_size(dioxus::desktop::tao::dpi::LogicalSize::new(720.0, 560.0)),
+            ),
+        )
+        .launch(App);
 }
 
 #[component]
@@ -19,7 +28,7 @@ fn App() -> Element {
 
     rsx! {
         style { "{APP_CSS}" }
-        div { class: "app-shell",// TODO le cadre de l'app a l'ouverture ne contient pas tout le contenu
+        div { class: "app-shell",
             div { class: "card",
                 h1 { class: "title", "Analyseur de logs" }
                 p { class: "subtitle", "Collez un log brut, puis cliquez sur Analyser pour suivre la reponse en streaming." }

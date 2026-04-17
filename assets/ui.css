@@ -17,6 +17,8 @@ html,
 body {
     margin: 0;
     padding: 0;
+    height: 100%;
+    overflow: auto;
 }
 
 .app-shell {
@@ -26,6 +28,7 @@ body {
     box-sizing: border-box;
     font-family: "IBM Plex Sans", "Noto Sans", sans-serif;
     color: var(--text);
+    overflow-y: auto;
 }
 
 .card {
