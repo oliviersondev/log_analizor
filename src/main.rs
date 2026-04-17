@@ -2,8 +2,18 @@ use log_analizor::analyzer::{AnalysisEvent, analyze_raw_log_stream};
 use std::io::{IsTerminal, Read, Write};
 
 const USAGE: &str = "Usage:\n  cargo run --bin log_analizor -- --log \"<log brut>\"\n  cat /path/to/log.txt | cargo run --bin log_analizor";
+const DEFAULT_MAX_LOG_BYTES: usize = 1_048_576;
+
+fn max_log_bytes_from_env() -> usize {
+    std::env::var("MAX_LOG_BYTES")
+        .ok()
+        .and_then(|value| value.trim().parse::<usize>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(DEFAULT_MAX_LOG_BYTES)
+}
 
 fn parse_raw_log_input() -> Result<String, std::io::Error> {
+    let max_log_bytes = max_log_bytes_from_env();
     let args: Vec<String> = std::env::args().skip(1).collect();
 
     if args.iter().any(|arg| arg == "--help" || arg == "-h") {
@@ -13,6 +23,7 @@ fn parse_raw_log_input() -> Result<String, std::io::Error> {
 
     let mut i = 0;
     while i < args.len() {
+        // TODO plutot un foreach q'un while
         match args[i].as_str() {
             "--log" | "-l" => {
                 let value = args.get(i + 1).ok_or_else(|| {
@@ -50,7 +61,23 @@ fn parse_raw_log_input() -> Result<String, std::io::Error> {
     }
 
     let mut buffer = String::new();
-    std::io::stdin().read_to_string(&mut buffer)?;
+    let read_limit = max_log_bytes
+        .checked_add(1)
+        .ok_or_else(|| std::io::Error::other("MAX_LOG_BYTES value is too large"))?;
+
+    std::io::stdin()
+        .take(read_limit as u64)
+        .read_to_string(&mut buffer)?;
+
+    if buffer.len() > max_log_bytes {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!(
+                "Stdin log input is too large (max {} bytes). Set MAX_LOG_BYTES to override.",
+                max_log_bytes
+            ),
+        ));
+    }
 
     if buffer.trim().is_empty() {
         return Err(std::io::Error::new(
